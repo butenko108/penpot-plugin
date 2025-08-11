@@ -34,69 +34,12 @@ penpot.on("selectionchange", () => {
 
 // Слушаем сообщения от UI
 penpot.ui.onMessage<PluginMessageEvent>((message) => {
-	if (message.type === "export-shape") {
-		handleExportShape();
-	} else if (message.type === "export-and-analyze") {
+	if (message.type === "export-and-analyze") {
 		handleExportAndAnalyze();
 	} else if (message.type === "create-text-shape") {
 		handleCreateTextShape(message.analysisText, message.selectedShapeInfo);
 	}
 });
-
-// Функция экспорта shape (старая)
-async function handleExportShape() {
-	try {
-		console.log("🚀 Начинаем экспорт...");
-		const selection = penpot.selection;
-
-		if (selection.length === 0) {
-			sendMessage({
-				type: "error",
-				content: "Пожалуйста, выберите элемент для экспорта",
-			});
-			return;
-		}
-
-		const shape = selection[0];
-		console.log("🎯 Shape для экспорта:", shape);
-
-		// Показываем статус загрузки
-		sendMessage({ type: "export-start" });
-
-		// Экспортируем shape в PNG используя метод shape.export()
-		const uint8Array = await shape.export({
-			type: "png",
-			scale: 2,
-		});
-		console.log("✅ Результат экспорта:", uint8Array);
-
-		// Генерируем имя файла
-		const fileName = `${shape.name || "shape"}_${Date.now()}.png`;
-		console.log("✅ Название файла:", fileName);
-
-		// Отправляем данные в UI (БЕЗ создания Blob здесь)
-		console.log("📬 Отправляем Uint8Array в UI...");
-		sendMessage({
-			type: "export-complete",
-			fileName,
-			imageData: uint8Array, // Передаем сырые данные
-			shapeInfo: {
-				id: shape.id,
-				name: shape.name || "Unnamed Shape",
-				width: shape.width,
-				height: shape.height,
-				type: shape.type,
-			},
-		});
-		console.log("✉️ Сообщение отправлено");
-	} catch (error) {
-		console.error("💥 Ошибка экспорта:", error);
-		sendMessage({
-			type: "error",
-			content: `Ошибка экспорта: ${error.message}`,
-		});
-	}
-}
 
 // Функция экспорта shape с анализом (новая)
 async function handleExportAndAnalyze() {

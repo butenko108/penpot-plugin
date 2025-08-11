@@ -13,23 +13,12 @@ export interface SelectionChangeEvent {
 	shapeInfo: ShapeInfo | null;
 }
 
-export interface ExportShapeEvent {
-	type: "export-shape";
-}
-
 export interface ExportAndAnalyzeEvent {
 	type: "export-and-analyze";
 }
 
 export interface ExportStartEvent {
 	type: "export-start";
-}
-
-export interface ExportCompleteEvent {
-	type: "export-complete";
-	fileName: string;
-	imageData: Uint8Array;
-	shapeInfo: ShapeInfo;
 }
 
 export interface ExportAndAnalyzeCompleteEvent {
@@ -61,10 +50,8 @@ export interface ShapeInfo {
 export type PluginMessageEvent =
 	| ThemePluginEvent
 	| SelectionChangeEvent
-	| ExportShapeEvent
 	| ExportAndAnalyzeEvent
 	| ExportStartEvent
-	| ExportCompleteEvent
 	| ExportAndAnalyzeCompleteEvent
 	| CreateTextShapeEvent
 	| ErrorEvent;

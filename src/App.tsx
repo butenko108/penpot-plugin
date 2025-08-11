@@ -36,18 +36,11 @@ function App() {
 					setExportStatus("Экспортируем shape...");
 					break;
 
-				case "export-complete":
-					setIsExporting(false);
-					setExportStatus(`Экспорт завершен: ${message.fileName}`);
-					downloadFile(message.fileName, message.imageData);
-					break;
-
 				case "export-and-analyze-complete":
 					setIsExporting(false);
-					setExportStatus(`Файл скачан: ${message.fileName}`);
-					downloadFile(message.fileName, message.imageData);
+					setExportStatus("Анализируем с Claude...");
 
-					// Анализируем с Claude
+					// Сразу анализируем с Claude (БЕЗ скачивания файла)
 					analyzeWithClaude(message.imageData)
 						.then((analysis) => {
 							console.log("🤖 Claude Analysis:", analysis);
@@ -62,7 +55,7 @@ function App() {
 								"*",
 							);
 
-							setExportStatus("Анализ завершен и текст создан");
+							setExportStatus("Анализ завершен");
 						})
 						.catch((error) => {
 							console.error("❌ Claude Error:", error);
@@ -80,41 +73,6 @@ function App() {
 		window.addEventListener("message", handleMessage);
 		return () => window.removeEventListener("message", handleMessage);
 	}, []);
-
-	// Функция для скачивания файла
-	const downloadFile = (fileName: string, imageData: Uint8Array) => {
-		try {
-			const blob = new Blob([imageData], { type: "image/png" });
-			// Создаем URL для blob
-			const url = URL.createObjectURL(blob);
-
-			// Создаем временную ссылку для скачивания
-			const link = document.createElement("a");
-			link.href = url;
-			link.download = fileName;
-
-			// Добавляем в DOM, кликаем и удаляем
-			document.body.appendChild(link);
-			link.click();
-			document.body.removeChild(link);
-
-			// Освобождаем память
-			URL.revokeObjectURL(url);
-
-			setExportStatus(`Файл скачан: ${fileName}`);
-		} catch (error) {
-			console.error("Ошибка скачивания файла:", error);
-			setExportStatus("Ошибка скачивания файла");
-		}
-	};
-
-	// Отправляем команду экспорта (старая функция)
-	const handleExportClick = () => {
-		if (!hasSelection) return;
-
-		// Отправляем сообщение в plugin.ts
-		parent.postMessage({ type: "export-shape" }, "*");
-	};
 
 	// Отправляем команду экспорта с анализом (новая функция)
 	const handleExportAndAnalyzeClick = () => {
@@ -155,22 +113,13 @@ function App() {
 
 				<div className="export-section">
 					<button
-						className="export-button"
-						onClick={handleExportClick}
-						disabled={!hasSelection || isExporting}
-					>
-						{isExporting ? "Экспортируем..." : "Экспортировать PNG"}
-					</button>
-
-					<button
+						type="button"
 						className="export-button claude-button"
 						onClick={handleExportAndAnalyzeClick}
 						disabled={!hasSelection || isExporting}
 						style={{ marginTop: "8px", backgroundColor: "#7c3aed" }}
 					>
-						{isExporting
-							? "Экспортируем..."
-							: "Скачать и анализировать с Claude"}
+						{isExporting ? "Анализируем..." : "Анализировать с Claude"}
 					</button>
 
 					{exportStatus && (
