@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
-import type { PluginMessageEvent, ShapeInfo } from "./model";
+import type { PluginMessageEvent, SavedAnalysis, ShapeInfo } from "./model";
 import { analyzeWithClaude } from "./services/claudeApi";
 
 function App() {
@@ -12,6 +12,9 @@ function App() {
 	const [selectedShape, setSelectedShape] = useState<ShapeInfo | null>(null);
 	const [isExporting, setIsExporting] = useState(false);
 	const [exportStatus, setExportStatus] = useState<string>("");
+	const [savedAnalysis, setSavedAnalysis] = useState<SavedAnalysis | null>(
+		null,
+	);
 
 	useEffect(() => {
 		// Слушаем сообщения от plugin.ts
@@ -26,6 +29,7 @@ function App() {
 				case "selection-change":
 					setHasSelection(message.hasSelection);
 					setSelectedShape(message.shapeInfo);
+					setSavedAnalysis(message.savedAnalysis || null);
 					if (!message.hasSelection) {
 						setExportStatus("");
 					}
@@ -130,6 +134,22 @@ function App() {
 						</div>
 					)}
 				</div>
+
+				{hasSelection && savedAnalysis && (
+					<div className="analysis-section">
+						<h3>Claude Analysis:</h3>
+						<div className="analysis-content">
+							<div style={{ whiteSpace: "pre-wrap", fontSize: "12px" }}>
+								{savedAnalysis.markdown}
+							</div>
+						</div>
+						<div className="analysis-meta">
+							<small>
+								Analyzed: {new Date(savedAnalysis.timestamp).toLocaleString()}
+							</small>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);

@@ -11,6 +11,7 @@ export interface SelectionChangeEvent {
 	type: "selection-change";
 	hasSelection: boolean;
 	shapeInfo: ShapeInfo | null;
+	savedAnalysis?: SavedAnalysis | null;
 }
 
 export interface ExportAndAnalyzeEvent {
@@ -55,3 +56,12 @@ export type PluginMessageEvent =
 	| ExportAndAnalyzeCompleteEvent
 	| CreateTextShapeEvent
 	| ErrorEvent;
+
+export interface SavedAnalysis {
+	markdown: string;
+	timestamp: number;
+	shapeInfo: {
+		name: string;
+		type: string;
+	};
+}

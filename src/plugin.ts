@@ -17,6 +17,19 @@ penpot.on("selectionchange", () => {
 	const hasSelection = selection.length > 0;
 	const selectedShape = hasSelection ? selection[0] : null;
 
+	// Читаем сохраненный анализ
+	let savedAnalysis = null;
+	if (selectedShape) {
+		const analysisData = selectedShape.getPluginData("claude-analysis");
+		if (analysisData) {
+			try {
+				savedAnalysis = JSON.parse(analysisData);
+			} catch (error) {
+				console.error("❌ Ошибка парсинга сохраненного анализа:", error);
+			}
+		}
+	}
+
 	sendMessage({
 		type: "selection-change",
 		hasSelection,
@@ -29,6 +42,7 @@ penpot.on("selectionchange", () => {
 					type: selectedShape.type,
 				}
 			: null,
+		savedAnalysis,
 	});
 });
 
@@ -94,7 +108,7 @@ async function handleExportAndAnalyze() {
 // 👉 НОВАЯ ФУНКЦИЯ: Создание текста снизу от выбранного элемента
 async function handleCreateTextShape(analysisText: string, shapeInfo: any) {
 	try {
-		console.log("📝 Создаем текст с анализом Claude...");
+		console.log("💾 Сохраняем анализ Claude в PluginData...");
 
 		// Найти оригинальный shape по ID
 		const allShapes = penpot.currentPage?.findShapes();
@@ -105,31 +119,31 @@ async function handleCreateTextShape(analysisText: string, shapeInfo: any) {
 			return;
 		}
 
-		// Позиция снизу от выбранного элемента
-		const textX = originalShape.x;
-		const textY = originalShape.y + originalShape.height + 20;
+		// Создаем структурированные данные
+		const analysisData = {
+			markdown: analysisText,
+			timestamp: Date.now(),
+			shapeInfo: {
+				name: shapeInfo.name,
+				type: shapeInfo.type,
+			},
+		};
 
-		console.log(`📍 Создаем текст в позиции: x=${textX}, y=${textY}`);
+		// Сохраняем в PluginData
+		originalShape.setPluginData(
+			"claude-analysis",
+			JSON.stringify(analysisData),
+		);
 
-		// Создать текст
-		const textShape = penpot.createText(analysisText);
-		textShape.x = textX;
-		textShape.y = textY;
-		textShape.resize(300, 100);
-
-		// Настроить стили (опционально)
-		textShape.name = `Claude Analysis: ${shapeInfo.name}`;
-
-		console.log("✅ Текст создан:", textShape.id);
+		console.log("✅ Анализ сохранен в PluginData");
 	} catch (error) {
-		console.error("❌ Ошибка создания текста:", error);
+		console.error("❌ Ошибка сохранения:", error);
 		sendMessage({
 			type: "error",
-			content: `Ошибка создания текста: ${error.message}`,
+			content: `Ошибка сохранения анализа: ${error.message}`,
 		});
 	}
 }
-
 // Вспомогательная функция для отправки сообщений
 function sendMessage(message: PluginMessageEvent) {
 	penpot.ui.sendMessage(message);
