@@ -1,0 +1,131 @@
+.plugin-container {
+	padding: 16px;
+	font-family: var(--font-family);
+	color: var(--color-foreground-primary);
+	background: var(--color-background-primary);
+	height: 100vh;
+	box-sizing: border-box;
+}
+
+.plugin-header {
+	margin-bottom: 20px;
+	border-bottom: 1px solid var(--color-background-tertiary);
+	padding-bottom: 12px;
+}
+
+.plugin-header h2 {
+	font-size: 16px;
+	font-weight: 500;
+	margin: 0;
+	color: var(--color-foreground-primary);
+}
+
+.plugin-content {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+.selection-info {
+	padding: 12px;
+	background: var(--color-background-secondary);
+	border-radius: 4px;
+	border: 1px solid var(--color-background-tertiary);
+}
+
+.selection-info h3 {
+	font-size: 14px;
+	font-weight: 500;
+	margin: 0 0 8px 0;
+	color: var(--color-foreground-primary);
+}
+
+.shape-details {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.shape-details p {
+	font-size: 12px;
+	margin: 0;
+	color: var(--color-foreground-secondary);
+}
+
+.shape-details strong {
+	color: var(--color-foreground-primary);
+}
+
+.no-selection {
+	padding: 20px;
+	text-align: center;
+	color: var(--color-foreground-secondary);
+	font-size: 14px;
+	background: var(--color-background-secondary);
+	border-radius: 4px;
+	border: 1px dashed var(--color-background-tertiary);
+}
+
+.export-section {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.export-button {
+	padding: 12px 16px;
+	font-size: 14px;
+	font-weight: 500;
+	color: white;
+	background: var(--color-accent-primary);
+	border: none;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background-color 0.2s ease;
+}
+
+.export-button:hover:not(:disabled) {
+	background: var(--color-accent-primary-muted);
+}
+
+.export-button:disabled {
+	background: var(--color-background-tertiary);
+	color: var(--color-foreground-secondary);
+	cursor: not-allowed;
+}
+
+.status-message {
+	padding: 8px 12px;
+	border-radius: 4px;
+	font-size: 12px;
+	text-align: center;
+}
+
+.status-message.success {
+	background: var(--color-success-background);
+	color: var(--color-success-foreground);
+	border: 1px solid var(--color-success-border);
+}
+
+.status-message.error {
+	background: var(--color-danger-background);
+	color: var(--color-danger-foreground);
+	border: 1px solid var(--color-danger-border);
+}
+
+/* Темная тема */
+[data-theme="dark"] .plugin-container {
+	background: var(--color-background-primary);
+}
+
+/* Адаптивность */
+@media (max-width: 320px) {
+	.plugin-container {
+		padding: 12px;
+	}
+
+	.export-button {
+		padding: 10px 14px;
+		font-size: 13px;
+	}
+}
