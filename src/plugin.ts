@@ -1,23 +1,43 @@
-import type { PluginMessageEvent } from "./model";
+import type { PluginMessage, PluginToUIMessage } from "./model";
+import { AutoTagService } from "./services/auto-tag-service";
+import { ExportService } from "./services/export-service";
+import { TagService } from "./services/tag-service";
+
+// ==========================================
+// ИНИЦИАЛИЗАЦИЯ СЕРВИСОВ
+// ==========================================
+
+// Сервисы для семантического тегирования
+const tagService = new TagService();
+const exportService = new ExportService();
+const autoTagService = new AutoTagService();
+
+// ==========================================
+// ИНИЦИАЛИЗАЦИЯ ПЛАГИНА
+// ==========================================
 
 // Открываем UI плагина
-penpot.ui.open("Shape Exporter Plugin", `?theme=${penpot.theme}`, {
-	width: 300,
-	height: 200,
+penpot.ui.open("Claude Analysis & Semantic Tagging", `?theme=${penpot.theme}`, {
+	width: 350,
+	height: 700,
 });
+
+// ==========================================
+// ОБРАБОТЧИКИ СОБЫТИЙ PENPOT
+// ==========================================
 
 // Отправляем тему при изменении
 penpot.on("themechange", (theme) => {
 	sendMessage({ type: "theme", content: theme });
 });
 
-// Отправляем информацию о выбранных элементах
+// Отправляем информацию о выбранных элементах (для обеих функций)
 penpot.on("selectionchange", () => {
 	const selection = penpot.selection;
 	const hasSelection = selection.length > 0;
 	const selectedShape = hasSelection ? selection[0] : null;
 
-	// Читаем сохраненный анализ
+	// Читаем сохраненный Claude анализ
 	let savedAnalysis = null;
 	if (selectedShape) {
 		const analysisData = selectedShape.getPluginData("claude-analysis");
@@ -30,6 +50,7 @@ penpot.on("selectionchange", () => {
 		}
 	}
 
+	// Отправляем данные для Claude функциональности
 	sendMessage({
 		type: "selection-change",
 		hasSelection,
@@ -44,18 +65,92 @@ penpot.on("selectionchange", () => {
 			: null,
 		savedAnalysis,
 	});
+
+	// Отправляем данные для Semantic функциональности
+	const selectionData = selection.map((element) => ({
+		id: element.id,
+		name: element.name || "Unnamed",
+		type: element.type,
+	}));
+
+	sendMessage({
+		type: "selection-update",
+		data: selectionData,
+	});
 });
 
-// Слушаем сообщения от UI
-penpot.ui.onMessage<PluginMessageEvent>((message) => {
-	if (message.type === "export-and-analyze") {
-		handleExportAndAnalyze();
-	} else if (message.type === "create-text-shape") {
-		handleCreateTextShape(message.analysisText, message.selectedShapeInfo);
+// ==========================================
+// ЗАГРУЗКА СУЩЕСТВУЮЩИХ ДАННЫХ
+// ==========================================
+
+// Загружаем существующие семантические теги при запуске
+function loadExistingTags(): void {
+	const loadedTags = tagService.loadExistingTags();
+
+	// Отправляем загруженные данные в UI
+	sendMessage({
+		type: "tags-loaded",
+		data: loadedTags,
+	});
+}
+
+// Инициализируем загрузку тегов
+loadExistingTags();
+
+// ==========================================
+// ОБРАБОТЧИК СООБЩЕНИЙ ОТ UI
+// ==========================================
+
+penpot.ui.onMessage<PluginMessage>((message) => {
+	switch (message.type) {
+		// ==========================================
+		// CLAUDE ФУНКЦИОНАЛЬНОСТЬ
+		// ==========================================
+		case "export-and-analyze":
+			handleExportAndAnalyze();
+			break;
+
+		case "create-text-shape":
+			handleCreateTextShape(message.analysisText, message.selectedShapeInfo);
+			break;
+
+		// ==========================================
+		// SEMANTIC ФУНКЦИОНАЛЬНОСТЬ
+		// ==========================================
+		case "get-selection":
+			sendSelectionUpdate();
+			break;
+
+		case "apply-tag":
+			handleApplyTag(message.data);
+			break;
+
+		case "remove-tag":
+			handleRemoveTag(message.data);
+			break;
+
+		case "export-tags":
+			handleExportTags();
+			break;
+
+		case "auto-tag-selection":
+			handleAutoTagSelection(message.data);
+			break;
+
+		case "generate-rich-json":
+			handleGenerateRichJson();
+			break;
+
+		default:
+			console.warn("Неизвестный тип сообщения:", message.type);
 	}
 });
 
-// Функция экспорта shape с анализом (новая)
+// ==========================================
+// CLAUDE ФУНКЦИИ
+// ==========================================
+
+// Функция экспорта shape с анализом
 async function handleExportAndAnalyze() {
 	try {
 		console.log("🚀 Начинаем экспорт с анализом...");
@@ -105,7 +200,7 @@ async function handleExportAndAnalyze() {
 	}
 }
 
-// 👉 НОВАЯ ФУНКЦИЯ: Создание текста снизу от выбранного элемента
+// Создание текста и сохранение анализа Claude
 async function handleCreateTextShape(analysisText: string, shapeInfo: any) {
 	try {
 		console.log("💾 Сохраняем анализ Claude в PluginData...");
@@ -144,7 +239,134 @@ async function handleCreateTextShape(analysisText: string, shapeInfo: any) {
 		});
 	}
 }
+
+// ==========================================
+// SEMANTIC ФУНКЦИИ
+// ==========================================
+
+// Отправка обновления выбора
+function sendSelectionUpdate(): void {
+	const selection = penpot.selection;
+	const selectionData = selection.map((element) => ({
+		id: element.id,
+		name: element.name || "Unnamed",
+		type: element.type,
+	}));
+
+	sendMessage({
+		type: "selection-update",
+		data: selectionData,
+	});
+}
+
+// Применение тега к элементам
+function handleApplyTag(data: any): void {
+	if (data) {
+		const appliedTags = tagService.applyTagToElements(
+			data.tag,
+			data.properties,
+			data.elementIds,
+		);
+
+		// Отправляем подтверждение для каждого примененного тега
+		appliedTags.forEach((tagData) => {
+			sendMessage({
+				type: "tag-applied",
+				data: tagData,
+			});
+		});
+
+		// Сохраняем в файл
+		tagService.saveTagsToFile();
+	}
+}
+
+// Удаление тега с элементов
+function handleRemoveTag(data: any): void {
+	if (data) {
+		const removedIds = tagService.removeTagFromElements(data.elementIds);
+
+		// Отправляем подтверждение для каждого удаленного тега
+		removedIds.forEach((elementId) => {
+			sendMessage({
+				type: "tag-removed",
+				data: { elementId },
+			});
+		});
+
+		// Сохраняем в файл
+		tagService.saveTagsToFile();
+	}
+}
+
+// Экспорт тегов
+function handleExportTags(): void {
+	const exportData = exportService.exportTags(tagService.getTaggedElements());
+
+	// Отправляем данные в UI для обработки загрузки
+	sendMessage({
+		type: "export-data",
+		data: exportData,
+	});
+}
+
+// Автоматическое тегирование выбранных элементов
+function handleAutoTagSelection(data: any): void {
+	if (data && data.elementIds) {
+		const result = autoTagService.autoTagElements(
+			data.elementIds,
+			tagService.getTaggedElements(),
+		);
+
+		// Отправляем подтверждение для каждого примененного тега
+		result.appliedTags.forEach((tagData) => {
+			sendMessage({
+				type: "tag-applied",
+				data: tagData,
+			});
+		});
+
+		// Отправляем сообщение о завершении
+		sendMessage({
+			type: "auto-tag-complete",
+			data: {
+				taggedCount: result.taggedCount,
+				processedElements: result.processedElements,
+			},
+		});
+
+		// Сохраняем в файл
+		tagService.saveTagsToFile();
+	}
+}
+
+// Генерация богатого JSON для кодогенерации
+function handleGenerateRichJson(): void {
+	const taggedElements = tagService.getTaggedElements();
+
+	if (taggedElements.size === 0) {
+		sendMessage({
+			type: "rich-json-data",
+			data: { metadata: {}, tree: [] },
+		});
+		return;
+	}
+
+	// Используем ту же логику, что и в exportTags, для получения только корневых shape
+	const exportData = exportService.exportTags(taggedElements);
+
+	// Отправляем богатые JSON данные в UI для генерации кода
+	sendMessage({
+		type: "rich-json-data",
+		data: exportData,
+	});
+}
+
+// ==========================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ==========================================
+
 // Вспомогательная функция для отправки сообщений
-function sendMessage(message: PluginMessageEvent) {
+function sendMessage(message: PluginToUIMessage) {
 	penpot.ui.sendMessage(message);
 }

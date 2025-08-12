@@ -9,6 +9,8 @@
 		"file:read",
 		"selection:read",
 		"allow:downloads",
-		"content:write"
+		"content:write",
+		"library:read",
+    "library:write"
 	]
 }
