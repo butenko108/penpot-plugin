@@ -7,7 +7,7 @@ import type {
 	ShapeInfo,
 	TagData,
 } from "./model";
-import { analyzeWithClaude } from "./services/claudeApi";
+import { analyzeWithClaude, generateASTWithClaude } from "./services/claudeApi";
 import {
 	CodeGenerator,
 	type CodeGeneratorNode,
@@ -16,6 +16,10 @@ import {
 function App() {
 	const url = new URL(window.location.href);
 	const initialTheme = url.searchParams.get("theme");
+
+	const [astData, setAstData] = useState<any>(null);
+	const [isGeneratingAST, setIsGeneratingAST] = useState(false);
+	const [astStatus, setAstStatus] = useState<string>("");
 
 	// ==========================================
 	// ОБЩЕЕ СОСТОЯНИЕ
@@ -188,6 +192,35 @@ function App() {
 				case "rich-json-data":
 					processRichJsonForCodeGeneration(message.data);
 					break;
+
+				case "ast-generated":
+					const { astData: generatedAST, success } = message.data;
+					if (success) {
+						setAstData({
+							ast: generatedAST,
+							timestamp: Date.now(),
+						});
+						setAstStatus("AST успешно сгенерирован");
+					}
+					setIsGeneratingAST(false);
+					break;
+
+				case "ast-error":
+					setAstStatus(`Ошибка генерации AST: ${message.content}`);
+					setIsGeneratingAST(false);
+					break;
+
+				case "ast-loaded":
+					// Загрузка существующего AST при выборе shape
+					if (message.data) {
+						setAstData({
+							ast: JSON.parse(message.data.ast),
+							timestamp: message.data.timestamp,
+						});
+					} else {
+						setAstData(null);
+					}
+					break;
 			}
 		};
 
@@ -300,6 +333,58 @@ function App() {
 				{ key: "className", value: "", placeholder: "css-class-name" },
 			]
 		);
+	};
+
+	const handleGenerateASTClick = async () => {
+		if (!hasSelection || !selectedShape) {
+			setAstStatus("Ошибка: Выберите элемент на холсте");
+			return;
+		}
+
+		setIsGeneratingAST(true);
+		setAstStatus("Подготовка данных для генерации AST...");
+
+		try {
+			const metaInfo = savedAnalysis?.markdown || "No analysis available";
+
+			if (!savedAnalysis) {
+				setAstStatus("Ошибка: Сначала проведите анализ с Claude");
+				setIsGeneratingAST(false);
+				return;
+			}
+
+			if (!htmlOutput || !cssOutput) {
+				setAstStatus("Ошибка: Сначала сгенерируйте HTML/CSS код");
+				setIsGeneratingAST(false);
+				return;
+			}
+
+			setAstStatus("Генерируем AST с Claude...");
+
+			// ВЫЗЫВАЕМ Claude API прямо здесь
+			const astResult = await generateASTWithClaude(
+				htmlOutput,
+				cssOutput,
+				metaInfo,
+			);
+
+			// Отправляем готовый AST для сохранения
+			parent.postMessage(
+				{
+					type: "save-ast",
+					data: {
+						astData: astResult,
+						shapeId: selectedShape.id,
+						metadata: { htmlOutput, cssOutput, metaInfo },
+					},
+				},
+				"*",
+			);
+		} catch (error) {
+			console.error("❌ AST Generation Error:", error);
+			setAstStatus(`Ошибка: ${error.message}`);
+			setIsGeneratingAST(false);
+		}
 	};
 
 	const addProperty = () => {
@@ -1088,6 +1173,65 @@ function App() {
 					</div>
 				</div>
 			</div>
+
+			<button
+				type="button"
+				className="export-button claude-button"
+				onClick={handleGenerateASTClick}
+				disabled={!hasSelection || isGeneratingAST}
+				style={{ marginTop: "8px", background: "#e11d48" }}
+			>
+				{isGeneratingAST ? "Generating AST..." : "🏗️ Generate AST"}
+			</button>
+
+			<button
+				type="button"
+				className="export-button"
+				onClick={() => {
+					if (selectedShape) {
+						parent.postMessage(
+							{
+								type: "clear-ast",
+								shapeId: selectedShape.id,
+							},
+							"*",
+						);
+						setAstData(null);
+						setAstStatus("AST очищен");
+					}
+				}}
+				disabled={!hasSelection}
+				style={{ marginTop: "8px", background: "#dc2626" }}
+			>
+				🗑️ Clear AST
+			</button>
+
+			{astStatus && (
+				<div
+					className={`status-message ${astStatus.includes("Ошибка") ? "error" : "success"}`}
+				>
+					{astStatus}
+				</div>
+			)}
+
+			{hasSelection && astData && (
+				<div className="analysis-section">
+					<h4>Generated AST:</h4>
+					<div className="analysis-content">
+						<textarea
+							className="code-textarea"
+							readOnly
+							value={JSON.stringify(astData.ast, null, 2)}
+							style={{ minHeight: "200px", fontFamily: "monospace" }}
+						/>
+					</div>
+					<div className="analysis-meta">
+						<small>
+							Generated: {new Date(astData.timestamp).toLocaleString()}
+						</small>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

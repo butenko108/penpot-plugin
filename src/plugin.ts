@@ -1,4 +1,5 @@
 import type { PluginMessage, PluginToUIMessage } from "./model";
+import { loadASTFromShape, saveASTToShape } from "./services/astStorageService";
 import { AutoTagService } from "./services/auto-tag-service";
 import { ExportService } from "./services/export-service";
 import { TagService } from "./services/tag-service";
@@ -50,6 +51,16 @@ penpot.on("selectionchange", () => {
 		}
 	}
 
+	// ДОБАВИТЬ: Читаем сохраненный AST
+	let savedAST = null;
+	if (selectedShape) {
+		const astData = loadASTFromShape(selectedShape);
+		if (astData) {
+			savedAST = astData;
+			console.log("✅ AST загружен для shape:", selectedShape.id);
+		}
+	}
+
 	// Отправляем данные для Claude функциональности
 	sendMessage({
 		type: "selection-change",
@@ -64,6 +75,12 @@ penpot.on("selectionchange", () => {
 				}
 			: null,
 		savedAnalysis,
+	});
+
+	// ДОБАВИТЬ: Отправляем AST данные в UI
+	sendMessage({
+		type: "ast-loaded",
+		data: savedAST,
 	});
 
 	// Отправляем данные для Semantic функциональности
@@ -139,6 +156,14 @@ penpot.ui.onMessage<PluginMessage>((message) => {
 
 		case "generate-rich-json":
 			handleGenerateRichJson();
+			break;
+
+		case "save-ast":
+			handleSaveAST(message.data);
+			break;
+
+		case "clear-ast":
+			handleClearAST(message.shapeId);
 			break;
 
 		default:
@@ -369,4 +394,71 @@ function handleGenerateRichJson(): void {
 // Вспомогательная функция для отправки сообщений
 function sendMessage(message: PluginToUIMessage) {
 	penpot.ui.sendMessage(message);
+}
+
+/**
+ * Handle saving AST to shape plugin data
+ */
+function handleSaveAST(data: any): void {
+	try {
+		console.log("💾 Сохраняем AST в Plugin Data...");
+
+		// Найти shape по ID
+		const shape = penpot.currentPage?.getShapeById(data.shapeId);
+		if (!shape) {
+			throw new Error("Shape не найден");
+		}
+
+		// Подготовить метаданные для сохранения
+		const metadata = {
+			shapeInfo: {
+				id: data.shapeId,
+				name: shape.name || "Unnamed",
+			},
+			htmlCode: data.metadata.htmlOutput,
+			cssCode: data.metadata.cssOutput,
+			metaInfo: data.metadata.metaInfo,
+		};
+
+		// Сохранить AST используя storage service
+		saveASTToShape(shape, data.astData, metadata);
+
+		// Попробовать распарсить AST для отправки в UI
+		let parsedAST;
+		try {
+			parsedAST = JSON.parse(data.astData);
+		} catch (parseError) {
+			console.warn("AST не является валидным JSON, отправляем как строку");
+			parsedAST = data.astData;
+		}
+
+		// Отправить подтверждение в UI
+		sendMessage({
+			type: "ast-generated",
+			data: {
+				astData: parsedAST,
+				success: true,
+			},
+		});
+
+		console.log("✅ AST успешно сохранен");
+	} catch (error) {
+		console.error("❌ Ошибка сохранения AST:", error);
+		sendMessage({
+			type: "ast-error",
+			content: error.message,
+		});
+	}
+}
+
+function handleClearAST(shapeId: string): void {
+	try {
+		const shape = penpot.currentPage?.getShapeById(shapeId);
+		if (shape) {
+			shape.setPluginData("component-ast", "");
+			console.log("✅ AST очищен для shape:", shapeId);
+		}
+	} catch (error) {
+		console.error("❌ Ошибка очистки AST:", error);
+	}
 }

@@ -65,7 +65,7 @@ export function extractComprehensiveStyles(shape: any, _isInFlexContainer: boole
 
   try {
     // 🐛 DEBUG: Log properties for debugging (can be disabled in production)
-    debugElement(shape);
+    // debugElement(shape); ОТКЛЮЧЕНО
 
     // 📐 POSITIONING AND DIMENSIONS
     const positioningStyles = extractPositioning(shape);

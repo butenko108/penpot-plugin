@@ -63,6 +63,60 @@ export interface SavedAnalysis {
 }
 
 // ==========================================
+// ТИПЫ ИЗ AST
+// ==========================================
+
+export interface GenerateASTMessage {
+	type: "generate-ast";
+	data: {
+		htmlCode: string;
+		cssCode: string;
+		metaInfo: string;
+		shapeId: string;
+		shapeName: string;
+	};
+}
+
+export interface SaveASTMessage {
+	type: "save-ast";
+	data: {
+		astData: string;
+		shapeId: string;
+		metadata: {
+			htmlOutput: string;
+			cssOutput: string;
+			metaInfo: string;
+		};
+	};
+}
+
+export interface ClearASTMessage {
+	type: "clear-ast";
+	shapeId: string;
+}
+
+export interface ASTGeneratedMessage {
+	type: "ast-generated";
+	data: {
+		astData: any;
+		success: boolean;
+	};
+}
+
+export interface ASTErrorMessage {
+	type: "ast-error";
+	content: string;
+}
+
+export interface ASTLoadedMessage {
+	type: "ast-loaded";
+	data: {
+		ast: string;
+		timestamp: number;
+	} | null;
+}
+
+// ==========================================
 // ТИПЫ ИЗ СЕМАНТИКА (Semantic Tagging)
 // ==========================================
 
@@ -295,7 +349,10 @@ export type PluginMessage =
 	| RemoveTagMessage
 	| ExportTagsMessage
 	| AutoTagSelectionMessage
-	| GenerateRichJsonMessage;
+	| GenerateRichJsonMessage
+	| GenerateASTMessage
+	| SaveASTMessage
+	| ClearASTMessage;
 
 // Объединенный тип для всех сообщений от плагина к UI
 export type PluginToUIMessage =
@@ -307,7 +364,10 @@ export type PluginToUIMessage =
 	| RichJsonDataMessage
 	| SelectionUpdateMessage
 	| ThemeChangeMessage
-	| ClaudePluginEvent;
+	| ClaudePluginEvent
+	| ASTGeneratedMessage
+	| ASTErrorMessage
+	| ASTLoadedMessage;
 
 // ==========================================
 // ДОПОЛНИТЕЛЬНЫЕ ТИПЫ ДЛЯ КОДОГЕНЕРАЦИИ
