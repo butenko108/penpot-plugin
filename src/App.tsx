@@ -7,7 +7,11 @@ import type {
 	ShapeInfo,
 	TagData,
 } from "./model";
-import { analyzeWithClaude, generateASTWithClaude } from "./services/claudeApi";
+import {
+	analyzeWithClaude,
+	generateASTWithClaude,
+	generateReactComponentWithClaude,
+} from "./services/claudeApi";
 import {
 	CodeGenerator,
 	type CodeGeneratorNode,
@@ -36,6 +40,11 @@ function App() {
 	const [savedAnalysis, setSavedAnalysis] = useState<SavedAnalysis | null>(
 		null,
 	);
+
+	const [reactComponentCode, setReactComponentCode] = useState("");
+	const [isGeneratingReactComponent, setIsGeneratingReactComponent] =
+		useState(false);
+	const [reactComponentStatus, setReactComponentStatus] = useState<string>("");
 
 	// ==========================================
 	// SEMANTIC СОСТОЯНИЕ
@@ -84,6 +93,9 @@ function App() {
 					setSavedAnalysis(message.savedAnalysis || null);
 					if (!message.hasSelection) {
 						setExportStatus("");
+						// ДОБАВИТЬ: Сброс React компонента при отсутствии выбора
+						setReactComponentCode("");
+						setReactComponentStatus("");
 					}
 					break;
 
@@ -220,6 +232,62 @@ function App() {
 					} else {
 						setAstData(null);
 					}
+					break;
+
+				case "react-component-generated":
+					const { componentCode, success: reactSuccess } = message.data;
+					if (reactSuccess) {
+						setReactComponentCode(componentCode);
+						setReactComponentStatus("React компонент успешно сгенерирован");
+					}
+					setIsGeneratingReactComponent(false);
+					break;
+
+				case "react-component-error":
+					setReactComponentStatus(
+						`Ошибка генерации React компонента: ${message.content}`,
+					);
+					setIsGeneratingReactComponent(false);
+					break;
+
+				case "react-component-loaded":
+					if (message.data) {
+						setReactComponentCode(message.data.componentCode);
+					} else {
+						setReactComponentCode("");
+					}
+					break;
+
+				case "generate-react-component-start":
+					setIsGeneratingReactComponent(true);
+					setReactComponentStatus("Генерируем React компонент с Claude...");
+
+					generateReactComponentWithClaude(message.data.astData)
+						.then((componentCode) => {
+							console.log("🚀 React Component generated:", componentCode);
+
+							// Сохраняем компонент в shape
+							parent.postMessage(
+								{
+									type: "save-react-component",
+									data: {
+										componentCode,
+										shapeId: message.data.shapeId,
+									},
+								},
+								"*",
+							);
+
+							// Отображаем в UI
+							setReactComponentCode(componentCode);
+							setReactComponentStatus("React компонент успешно сгенерирован");
+							setIsGeneratingReactComponent(false);
+						})
+						.catch((error) => {
+							console.error("❌ React Component Error:", error);
+							setReactComponentStatus(`Ошибка генерации: ${error.message}`);
+							setIsGeneratingReactComponent(false);
+						});
 					break;
 			}
 		};
@@ -385,6 +453,27 @@ function App() {
 			setAstStatus(`Ошибка: ${error.message}`);
 			setIsGeneratingAST(false);
 		}
+	};
+
+	const handleGenerateReactComponentClick = async () => {
+		if (!astData || !selectedShape) {
+			setReactComponentStatus("Ошибка: Сначала сгенерируйте AST");
+			return;
+		}
+
+		setIsGeneratingReactComponent(true);
+		setReactComponentStatus("Генерируем React компонент...");
+
+		parent.postMessage(
+			{
+				type: "generate-react-component",
+				data: {
+					astData: JSON.stringify(astData.ast),
+					shapeId: selectedShape.id,
+				},
+			},
+			"*",
+		);
 	};
 
 	const addProperty = () => {
@@ -1229,6 +1318,74 @@ function App() {
 						<small>
 							Generated: {new Date(astData.timestamp).toLocaleString()}
 						</small>
+					</div>
+				</div>
+			)}
+
+			<button
+				type="button"
+				className="export-button claude-button"
+				onClick={handleGenerateReactComponentClick}
+				disabled={!astData || isGeneratingReactComponent}
+				style={{ marginTop: "8px", background: "#10b981" }}
+			>
+				{isGeneratingReactComponent
+					? "Generating React..."
+					: "🚀 Generate React Component"}
+			</button>
+
+			<button
+				type="button"
+				className="export-button"
+				onClick={() => {
+					if (selectedShape) {
+						parent.postMessage(
+							{
+								type: "clear-react-component",
+								shapeId: selectedShape.id,
+							},
+							"*",
+						);
+						setReactComponentCode("");
+						setReactComponentStatus("React компонент очищен");
+					}
+				}}
+				disabled={!hasSelection}
+				style={{ marginTop: "8px", background: "#dc2626" }}
+			>
+				🗑️ Clear React Component
+			</button>
+
+			{reactComponentStatus && (
+				<div
+					className={`status-message ${reactComponentStatus.includes("Ошибка") ? "error" : "success"}`}
+				>
+					{reactComponentStatus}
+				</div>
+			)}
+
+			{hasSelection && reactComponentCode && (
+				<div className="analysis-section">
+					<h4>Generated React Component:</h4>
+					<div className="analysis-content">
+						<textarea
+							className="code-textarea"
+							readOnly
+							value={reactComponentCode}
+							style={{ minHeight: "300px", fontFamily: "monospace" }}
+						/>
+					</div>
+					<div className="analysis-meta">
+						<button
+							type="button"
+							onClick={() =>
+								copyToClipboard(reactComponentCode, "React Component")
+							}
+							data-appearance="secondary"
+							style={{ marginTop: "8px" }}
+						>
+							Copy React Component
+						</button>
 					</div>
 				</div>
 			)}

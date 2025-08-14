@@ -112,3 +112,53 @@ export const generateASTWithClaude = async (
 		throw new Error(`Claude AST API Error: ${error.message}`);
 	}
 };
+
+export const generateReactComponentWithClaude = async (
+	astData: string,
+): Promise<string> => {
+	const prompt = `Задача:
+Создай реакт компонент на основании этой ast. 
+${astData}
+Ничего не добавляй от себя. Просто следуй этим инструкциям. css стили, реакт компонент. Сам компонент - это один файл.`;
+
+	console.log("📡 Отправляем запрос на генерацию React компонента в Claude API...");
+
+	try {
+		const message = await anthropic.messages.create({
+			model: "claude-sonnet-4-20250514",
+			max_tokens: 4000,
+			messages: [
+				{
+					role: "user",
+					content: [
+						{
+							type: "text",
+							text: prompt,
+						},
+					],
+				},
+			],
+		});
+
+		console.log("✅ React Component response received from Claude");
+
+		// Извлекаем текст из ответа
+		const textContent = message.content.find(
+			(content) => content.type === "text",
+		);
+
+		const rawResponse = textContent?.text || "No React component generated";
+
+		// Очистка от markdown
+		const cleanedResponse = rawResponse
+			.replace(/```jsx\s*/g, "") // убрать ```jsx
+			.replace(/```javascript\s*/g, "") // убрать ```javascript
+			.replace(/```\s*/g, "") // убрать ```
+			.trim(); // убрать лишние пробелы
+
+		return cleanedResponse;
+	} catch (error) {
+		console.error("❌ Claude React Component Error:", error);
+		throw new Error(`Claude React Component API Error: ${error.message}`);
+	}
+};

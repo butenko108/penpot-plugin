@@ -66,6 +66,14 @@ export interface SavedAnalysis {
 // ТИПЫ ИЗ AST
 // ==========================================
 
+export interface GenerateReactComponentStartMessage {
+	type: "generate-react-component-start";
+	data: {
+		astData: string;
+		shapeId: string;
+	};
+}
+
 export interface GenerateASTMessage {
 	type: "generate-ast";
 	data: {
@@ -112,6 +120,49 @@ export interface ASTLoadedMessage {
 	type: "ast-loaded";
 	data: {
 		ast: string;
+		timestamp: number;
+	} | null;
+}
+
+// В секцию "ТИПЫ ИЗ AST" добавить:
+export interface GenerateReactComponentMessage {
+	type: "generate-react-component";
+	data: {
+		astData: string;
+		shapeId: string;
+	};
+}
+
+export interface SaveReactComponentMessage {
+	type: "save-react-component";
+	data: {
+		componentCode: string;
+		shapeId: string;
+	};
+}
+
+export interface ClearReactComponentMessage {
+	type: "clear-react-component";
+	shapeId: string;
+}
+
+export interface ReactComponentGeneratedMessage {
+	type: "react-component-generated";
+	data: {
+		componentCode: string;
+		success: boolean;
+	};
+}
+
+export interface ReactComponentErrorMessage {
+	type: "react-component-error";
+	content: string;
+}
+
+export interface ReactComponentLoadedMessage {
+	type: "react-component-loaded";
+	data: {
+		componentCode: string;
 		timestamp: number;
 	} | null;
 }
@@ -352,7 +403,10 @@ export type PluginMessage =
 	| GenerateRichJsonMessage
 	| GenerateASTMessage
 	| SaveASTMessage
-	| ClearASTMessage;
+	| ClearASTMessage
+	| GenerateReactComponentMessage
+	| SaveReactComponentMessage
+	| ClearReactComponentMessage;
 
 // Объединенный тип для всех сообщений от плагина к UI
 export type PluginToUIMessage =
@@ -367,7 +421,11 @@ export type PluginToUIMessage =
 	| ClaudePluginEvent
 	| ASTGeneratedMessage
 	| ASTErrorMessage
-	| ASTLoadedMessage;
+	| ASTLoadedMessage
+	| ReactComponentGeneratedMessage
+	| ReactComponentErrorMessage
+	| ReactComponentLoadedMessage
+	| GenerateReactComponentStartMessage;
 
 // ==========================================
 // ДОПОЛНИТЕЛЬНЫЕ ТИПЫ ДЛЯ КОДОГЕНЕРАЦИИ

@@ -2,6 +2,11 @@ import type { PluginMessage, PluginToUIMessage } from "./model";
 import { loadASTFromShape, saveASTToShape } from "./services/astStorageService";
 import { AutoTagService } from "./services/auto-tag-service";
 import { ExportService } from "./services/export-service";
+import {
+	loadReactComponentFromShape,
+	removeReactComponentFromShape,
+	saveReactComponentToShape,
+} from "./services/reactComponentStorageService";
 import { TagService } from "./services/tag-service";
 
 // ==========================================
@@ -94,6 +99,47 @@ penpot.on("selectionchange", () => {
 		type: "selection-update",
 		data: selectionData,
 	});
+
+	// ДОБАВИТЬ: Читаем сохраненный React компонент
+	let savedReactComponent = null;
+	if (selectedShape) {
+		const reactComponentData = loadReactComponentFromShape(selectedShape);
+		if (reactComponentData) {
+			savedReactComponent = {
+				componentCode: reactComponentData.componentCode,
+				timestamp: reactComponentData.timestamp,
+			};
+			console.log("✅ React компонент загружен для shape:", selectedShape.id);
+		}
+	}
+
+	// Отправляем данные для Claude функциональности (существующий код остается)
+	sendMessage({
+		type: "selection-change",
+		hasSelection,
+		shapeInfo: selectedShape
+			? {
+					id: selectedShape.id,
+					name: selectedShape.name || "Unnamed Shape",
+					width: selectedShape.width,
+					height: selectedShape.height,
+					type: selectedShape.type,
+				}
+			: null,
+		savedAnalysis,
+	});
+
+	// ДОБАВИТЬ: Отправляем AST данные в UI (существующий код остается)
+	sendMessage({
+		type: "ast-loaded",
+		data: savedAST,
+	});
+
+	// ДОБАВИТЬ: Отправляем React компонент данные в UI
+	sendMessage({
+		type: "react-component-loaded",
+		data: savedReactComponent,
+	});
 });
 
 // ==========================================
@@ -164,6 +210,18 @@ penpot.ui.onMessage<PluginMessage>((message) => {
 
 		case "clear-ast":
 			handleClearAST(message.shapeId);
+			break;
+
+		case "generate-react-component":
+			handleGenerateReactComponent(message.data);
+			break;
+
+		case "save-react-component":
+			handleSaveReactComponent(message.data);
+			break;
+
+		case "clear-react-component":
+			handleClearReactComponent(message.shapeId);
 			break;
 
 		default:
@@ -460,5 +518,86 @@ function handleClearAST(shapeId: string): void {
 		}
 	} catch (error) {
 		console.error("❌ Ошибка очистки AST:", error);
+	}
+}
+
+/**
+ * Handle generating React component from AST
+ */
+async function handleGenerateReactComponent(data: any): Promise<void> {
+	try {
+		console.log("🚀 Начинаем генерацию React компонента...");
+
+		const { astData, shapeId } = data;
+
+		if (!astData) {
+			throw new Error("AST данные не найдены");
+		}
+
+		const shape = penpot.currentPage?.getShapeById(shapeId);
+		if (!shape) {
+			throw new Error("Shape не найден");
+		}
+
+		// Передаем данные в UI для обработки Claude API
+		sendMessage({
+			type: "generate-react-component-start",
+			data: { astData, shapeId },
+		});
+
+		console.log("✅ Данные переданы в UI для генерации React компонента");
+	} catch (error) {
+		console.error("❌ Ошибка генерации React компонента:", error);
+		sendMessage({
+			type: "react-component-error",
+			content: error.message,
+		});
+	}
+}
+
+/**
+ * Handle saving React component to shape plugin data
+ */
+function handleSaveReactComponent(data: any): void {
+	try {
+		const { componentCode, shapeId } = data;
+		const shape = penpot.currentPage?.getShapeById(shapeId);
+
+		if (!shape) {
+			throw new Error("Shape не найден");
+		}
+
+		// Использовать storage service
+		const metadata = {
+			shapeInfo: {
+				id: shapeId,
+				name: shape.name || "Unnamed",
+			},
+		};
+
+		saveReactComponentToShape(shape, componentCode, metadata);
+
+		console.log("✅ React компонент сохранен");
+	} catch (error) {
+		console.error("❌ Ошибка сохранения React компонента:", error);
+		sendMessage({
+			type: "react-component-error",
+			content: error.message,
+		});
+	}
+}
+
+/**
+ * Handle clearing React component from shape
+ */
+function handleClearReactComponent(shapeId: string): void {
+	try {
+		const shape = penpot.currentPage?.getShapeById(shapeId);
+		if (shape) {
+			removeReactComponentFromShape(shape);
+			console.log("✅ React компонент очищен для shape:", shapeId);
+		}
+	} catch (error) {
+		console.error("❌ Ошибка очистки React компонента:", error);
 	}
 }
