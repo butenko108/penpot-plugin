@@ -66,6 +66,56 @@ export interface SavedAnalysis {
 // ТИПЫ ИЗ AST
 // ==========================================
 
+export interface GenerateStorybookMessage {
+	type: "generate-storybook";
+	data: {
+		reactCode: string;
+		shapeId: string;
+	};
+}
+
+export interface GenerateStorybookStartMessage {
+	type: "generate-storybook-start";
+	data: {
+		reactCode: string;
+		shapeId: string;
+	};
+}
+
+export interface SaveStorybookMessage {
+	type: "save-storybook";
+	data: {
+		storybookCode: string;
+		shapeId: string;
+	};
+}
+
+export interface ClearStorybookMessage {
+	type: "clear-storybook";
+	shapeId: string;
+}
+
+export interface StorybookGeneratedMessage {
+	type: "storybook-generated";
+	data: {
+		storybookCode: string;
+		storybookSuccess: boolean;
+	};
+}
+
+export interface StorybookErrorMessage {
+	type: "storybook-error";
+	content: string;
+}
+
+export interface StorybookLoadedMessage {
+	type: "storybook-loaded";
+	data: {
+		storybookCode: string;
+		timestamp: number;
+	} | null;
+}
+
 export interface GenerateReactComponentStartMessage {
 	type: "generate-react-component-start";
 	data: {
@@ -406,7 +456,10 @@ export type PluginMessage =
 	| ClearASTMessage
 	| GenerateReactComponentMessage
 	| SaveReactComponentMessage
-	| ClearReactComponentMessage;
+	| ClearReactComponentMessage
+	| GenerateStorybookMessage
+	| SaveStorybookMessage
+	| ClearStorybookMessage;
 
 // Объединенный тип для всех сообщений от плагина к UI
 export type PluginToUIMessage =
@@ -425,7 +478,11 @@ export type PluginToUIMessage =
 	| ReactComponentGeneratedMessage
 	| ReactComponentErrorMessage
 	| ReactComponentLoadedMessage
-	| GenerateReactComponentStartMessage;
+	| GenerateReactComponentStartMessage
+	| StorybookGeneratedMessage
+	| StorybookErrorMessage
+	| StorybookLoadedMessage
+	| GenerateStorybookStartMessage;
 
 // ==========================================
 // ДОПОЛНИТЕЛЬНЫЕ ТИПЫ ДЛЯ КОДОГЕНЕРАЦИИ

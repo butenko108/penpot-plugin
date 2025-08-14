@@ -11,6 +11,7 @@ import {
 	analyzeWithClaude,
 	generateASTWithClaude,
 	generateReactComponentWithClaude,
+	generateStorybookWithClaude,
 } from "./services/claudeApi";
 import {
 	CodeGenerator,
@@ -54,6 +55,13 @@ function App() {
 		new Map(),
 	);
 
+	// ==========================================
+	// STORYBOOK СОСТОЯНИЕ
+	// ==========================================
+	const [storybookCode, setStorybookCode] = useState("");
+	const [isGeneratingStorybook, setIsGeneratingStorybook] = useState(false);
+	const [storybookStatus, setStorybookStatus] = useState<string>("");
+
 	// Tagging form state
 	const [tagSelect, setTagSelect] = useState("");
 	const [customTag, setCustomTag] = useState("");
@@ -93,9 +101,12 @@ function App() {
 					setSavedAnalysis(message.savedAnalysis || null);
 					if (!message.hasSelection) {
 						setExportStatus("");
-						// ДОБАВИТЬ: Сброс React компонента при отсутствии выбора
+						// Существующий сброс React компонента
 						setReactComponentCode("");
 						setReactComponentStatus("");
+						// ДОБАВИТЬ: Сброс Storybook при отсутствии выбора
+						setStorybookCode("");
+						setStorybookStatus("");
 					}
 					break;
 
@@ -289,6 +300,60 @@ function App() {
 							setIsGeneratingReactComponent(false);
 						});
 					break;
+
+				case "generate-storybook-start":
+					setIsGeneratingStorybook(true);
+					setStorybookStatus("Генерируем Storybook с Claude...");
+
+					generateStorybookWithClaude(message.data.reactCode)
+						.then((storybookCode) => {
+							console.log("📚 Storybook generated:", storybookCode);
+
+							// Сохраняем storybook в shape
+							parent.postMessage(
+								{
+									type: "save-storybook",
+									data: {
+										storybookCode,
+										shapeId: message.data.shapeId,
+									},
+								},
+								"*",
+							);
+
+							// Отображаем в UI
+							setStorybookCode(storybookCode);
+							setStorybookStatus("Storybook успешно сгенерирован");
+							setIsGeneratingStorybook(false);
+						})
+						.catch((error) => {
+							console.error("❌ Storybook Error:", error);
+							setStorybookStatus(`Ошибка генерации: ${error.message}`);
+							setIsGeneratingStorybook(false);
+						});
+					break;
+
+				case "storybook-generated":
+					const { storybookCode, storybookSuccess } = message.data;
+					if (storybookSuccess) {
+						setStorybookCode(storybookCode);
+						setStorybookStatus("Storybook успешно сгенерирован");
+					}
+					setIsGeneratingStorybook(false);
+					break;
+
+				case "storybook-error":
+					setStorybookStatus(`Ошибка генерации Storybook: ${message.content}`);
+					setIsGeneratingStorybook(false);
+					break;
+
+				case "storybook-loaded":
+					if (message.data) {
+						setStorybookCode(message.data.storybookCode);
+					} else {
+						setStorybookCode("");
+					}
+					break;
 			}
 		};
 
@@ -469,6 +534,27 @@ function App() {
 				type: "generate-react-component",
 				data: {
 					astData: JSON.stringify(astData.ast),
+					shapeId: selectedShape.id,
+				},
+			},
+			"*",
+		);
+	};
+
+	const handleGenerateStorybookClick = async () => {
+		if (!reactComponentCode || !selectedShape) {
+			setStorybookStatus("Ошибка: Сначала сгенерируйте React компонент");
+			return;
+		}
+
+		setIsGeneratingStorybook(true);
+		setStorybookStatus("Генерируем Storybook...");
+
+		parent.postMessage(
+			{
+				type: "generate-storybook",
+				data: {
+					reactCode: reactComponentCode,
 					shapeId: selectedShape.id,
 				},
 			},
@@ -1385,6 +1471,72 @@ function App() {
 							style={{ marginTop: "8px" }}
 						>
 							Copy React Component
+						</button>
+					</div>
+				</div>
+			)}
+
+			<button
+				type="button"
+				className="export-button claude-button"
+				onClick={handleGenerateStorybookClick}
+				disabled={!reactComponentCode || isGeneratingStorybook}
+				style={{ marginTop: "8px", background: "#8b5cf6" }}
+			>
+				{isGeneratingStorybook
+					? "Generating Storybook..."
+					: "📚 Generate Storybook"}
+			</button>
+
+			<button
+				type="button"
+				className="export-button"
+				onClick={() => {
+					if (selectedShape) {
+						parent.postMessage(
+							{
+								type: "clear-storybook",
+								shapeId: selectedShape.id,
+							},
+							"*",
+						);
+						setStorybookCode("");
+						setStorybookStatus("Storybook очищен");
+					}
+				}}
+				disabled={!hasSelection}
+				style={{ marginTop: "8px", background: "#dc2626" }}
+			>
+				🗑️ Clear Storybook
+			</button>
+
+			{storybookStatus && (
+				<div
+					className={`status-message ${storybookStatus.includes("Ошибка") ? "error" : "success"}`}
+				>
+					{storybookStatus}
+				</div>
+			)}
+
+			{hasSelection && storybookCode && (
+				<div className="analysis-section">
+					<h4>Generated Storybook:</h4>
+					<div className="analysis-content">
+						<textarea
+							className="code-textarea"
+							readOnly
+							value={storybookCode}
+							style={{ minHeight: "300px", fontFamily: "monospace" }}
+						/>
+					</div>
+					<div className="analysis-meta">
+						<button
+							type="button"
+							onClick={() => copyToClipboard(storybookCode, "Storybook")}
+							data-appearance="secondary"
+							style={{ marginTop: "8px" }}
+						>
+							Copy Storybook
 						</button>
 					</div>
 				</div>

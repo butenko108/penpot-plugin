@@ -121,7 +121,9 @@ export const generateReactComponentWithClaude = async (
 ${astData}
 Ничего не добавляй от себя. Просто следуй этим инструкциям. css стили, реакт компонент. Сам компонент - это один файл.`;
 
-	console.log("📡 Отправляем запрос на генерацию React компонента в Claude API...");
+	console.log(
+		"📡 Отправляем запрос на генерацию React компонента в Claude API...",
+	);
 
 	try {
 		const message = await anthropic.messages.create({
@@ -160,5 +162,56 @@ ${astData}
 	} catch (error) {
 		console.error("❌ Claude React Component Error:", error);
 		throw new Error(`Claude React Component API Error: ${error.message}`);
+	}
+};
+
+export const generateStorybookWithClaude = async (
+	reactCode: string,
+): Promise<string> => {
+	const prompt = `Задача:
+Создай storybook файл на основании кода Реакт Компонента.
+${reactCode}
+Сторибук - это один файл.`;
+
+	console.log("📡 Отправляем запрос на генерацию Storybook в Claude API...");
+
+	try {
+		const message = await anthropic.messages.create({
+			model: "claude-sonnet-4-20250514",
+			max_tokens: 4000,
+			messages: [
+				{
+					role: "user",
+					content: [
+						{
+							type: "text",
+							text: prompt,
+						},
+					],
+				},
+			],
+		});
+
+		console.log("✅ Storybook response received from Claude");
+
+		// Извлекаем текст из ответа
+		const textContent = message.content.find(
+			(content) => content.type === "text",
+		);
+
+		const rawResponse = textContent?.text || "No Storybook generated";
+
+		// Очистка от markdown
+		const cleanedResponse = rawResponse
+			.replace(/```typescript\s*/g, "") // убрать ```typescript
+			.replace(/```javascript\s*/g, "") // убрать ```javascript
+			.replace(/```jsx\s*/g, "") // убрать ```jsx
+			.replace(/```\s*/g, "") // убрать ```
+			.trim(); // убрать лишние пробелы
+
+		return cleanedResponse;
+	} catch (error) {
+		console.error("❌ Claude Storybook Error:", error);
+		throw new Error(`Claude Storybook API Error: ${error.message}`);
 	}
 };

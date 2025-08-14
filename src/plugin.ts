@@ -7,6 +7,10 @@ import {
 	removeReactComponentFromShape,
 	saveReactComponentToShape,
 } from "./services/reactComponentStorageService";
+import {
+	loadStorybookFromShape,
+	removeStorybookFromShape,
+} from "./services/storybookStorageService";
 import { TagService } from "./services/tag-service";
 
 // ==========================================
@@ -113,6 +117,19 @@ penpot.on("selectionchange", () => {
 		}
 	}
 
+	// ДОБАВИТЬ: Читаем сохраненный Storybook
+	let savedStorybook = null;
+	if (selectedShape) {
+		const storybookData = loadStorybookFromShape(selectedShape);
+		if (storybookData) {
+			savedStorybook = {
+				storybookCode: storybookData.storybookCode,
+				timestamp: storybookData.timestamp,
+			};
+			console.log("✅ Storybook загружен для shape:", selectedShape.id);
+		}
+	}
+
 	// Отправляем данные для Claude функциональности (существующий код остается)
 	sendMessage({
 		type: "selection-change",
@@ -139,6 +156,12 @@ penpot.on("selectionchange", () => {
 	sendMessage({
 		type: "react-component-loaded",
 		data: savedReactComponent,
+	});
+
+	// ДОБАВИТЬ: Отправляем Storybook данные в UI
+	sendMessage({
+		type: "storybook-loaded",
+		data: savedStorybook,
 	});
 });
 
@@ -222,6 +245,18 @@ penpot.ui.onMessage<PluginMessage>((message) => {
 
 		case "clear-react-component":
 			handleClearReactComponent(message.shapeId);
+			break;
+
+		case "generate-storybook":
+			handleGenerateStorybook(message.data);
+			break;
+
+		case "save-storybook":
+			handleSaveStorybook(message.data);
+			break;
+
+		case "clear-storybook":
+			handleClearStorybook(message.shapeId);
 			break;
 
 		default:
@@ -599,5 +634,85 @@ function handleClearReactComponent(shapeId: string): void {
 		}
 	} catch (error) {
 		console.error("❌ Ошибка очистки React компонента:", error);
+	}
+}
+
+/**
+ * Handle generating Storybook from React component
+ */
+async function handleGenerateStorybook(data: any): Promise<void> {
+	try {
+		console.log("📚 Начинаем генерацию Storybook...");
+
+		const { reactCode, shapeId } = data;
+
+		if (!reactCode) {
+			throw new Error("React код не найден");
+		}
+
+		const shape = penpot.currentPage?.getShapeById(shapeId);
+		if (!shape) {
+			throw new Error("Shape не найден");
+		}
+
+		// Передаем данные в UI для обработки Claude API
+		sendMessage({
+			type: "generate-storybook-start",
+			data: { reactCode, shapeId },
+		});
+
+		console.log("✅ Данные переданы в UI для генерации Storybook");
+	} catch (error) {
+		console.error("❌ Ошибка генерации Storybook:", error);
+		sendMessage({
+			type: "storybook-error",
+			content: error.message,
+		});
+	}
+}
+
+/**
+ * Handle saving Storybook to shape plugin data
+ */
+function handleSaveStorybook(data: any): void {
+	try {
+		const { storybookCode, shapeId } = data;
+		const shape = penpot.currentPage?.getShapeById(shapeId);
+
+		if (!shape) {
+			throw new Error("Shape не найден");
+		}
+
+		// Простое сохранение без импортов
+		shape.setPluginData(
+			"storybook-component",
+			JSON.stringify({
+				storybookCode,
+				timestamp: Date.now(),
+			}),
+		);
+
+		console.log("✅ Storybook сохранен");
+	} catch (error) {
+		console.error("❌ Ошибка сохранения Storybook:", error);
+		sendMessage({
+			type: "storybook-error",
+			content: error.message,
+		});
+	}
+}
+
+/**
+ * Handle clearing Storybook from shape
+ */
+function handleClearStorybook(shapeId: string): void {
+	try {
+		const shape = penpot.currentPage?.getShapeById(shapeId);
+		if (shape) {
+			removeStorybookFromShape(shape);
+			console.log("✅ Storybook очищен для shape:", shapeId);
+		}
+	} catch (error) {
+		console.error("❌ Ошибка очистки Storybook:", error);
 	}
 }
